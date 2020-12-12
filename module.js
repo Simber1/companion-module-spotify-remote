@@ -311,9 +311,6 @@ instance.prototype.actions = function(system) {
         'pause': {
 			label: 'Pause Playback',
         },
-        'getDevices': {
-            label: 'Get Devices'
-        },
         'volumeUp': {
             label: 'Volume Up',
 			options: [
