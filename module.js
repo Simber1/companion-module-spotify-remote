@@ -1,8 +1,7 @@
 //TODO:
 // Clean up code, volume function, shuffle function, play function all in a different file. Startup and config function for setting all of the wrapper vars too
 // Varibles: Current Volume, Current song, Song progress, Current album art as a var(?), Current Play Status, Current Device Name
-// Fix no active device
-// Auto Refresh key; Kinda done, only works on actions
+// Auto Refresh key; Kinda done, requires 2 presses sometimes
 // Instance Feedback for current playback state, shuffle/repeat on or off
 
 
@@ -60,17 +59,13 @@ function errorCheck(err){
               erorr401 = true;
             },
             function(err) {
-              console.log('Could not refresh access token', err);
+                self.warn('Could not refresh access token', err);
             }
         );
     } 
     else{
-        console.log('Something went wrong with an API Call: '+ err);
+        self.warn('Something went wrong with an API Call: '+ err);
     }
-    if(err.statusCode == '404'){
-    }
-
-
 }
 
 function ChangePlayState(action,device) {
@@ -81,14 +76,14 @@ function ChangePlayState(action,device) {
             if(action.action == 'pause' || action.action == 'play/pause'){
                 spotifyApi.pause().then(
                     function() {}, 
-                    function(err) {console.log('Something went wrong!', err);}
+                    function(err) {self.warn('Something went wrong!', err);}
                 );
             }
         } else {
             if(action.action == 'play' || action.action == 'play/pause'){
                 spotifyApi.play({"device_id": device}).then(
                     function() {}, 
-                    function(err) {console.log('Something went wrong!', err);}
+                    function(err) {self.warn('Something went wrong!', err);}
                 );
             }
         }
@@ -123,7 +118,7 @@ function ChangeShuffleState(action){
 
 }
 
-function ChangeVolume(action){
+function ChangeVolume(action,device){
     var availableDevices;
     var currentVolume;
 
@@ -133,7 +128,7 @@ function ChangeVolume(action){
         availableDevices = data.body.devices;
 
         for(i=0; i <availableDevices.length; i++){
-            if(availableDevices[i].is_active){
+            if(availableDevices[i].id == device){
                 currentVolume = availableDevices[i].volume_percent;
             }
         }
@@ -149,7 +144,7 @@ function ChangeVolume(action){
             if(currentVolume < 0){ currentVolume = 0; }
         }
 
-        spotifyApi.setVolume(currentVolume)
+        spotifyApi.setVolume(currentVolume,{"device_id": device})
             .then(function () {}, 
             function(err) {errorCheck(err)});
         }, function(err) {
@@ -183,7 +178,6 @@ instance.prototype.updateConfig = function(config) {
 	var self = this;
 
     self.config = config;
-    console.log(self.config);
     spotifyApi.setClientId(self.config.clientId);
     spotifyApi.setClientSecret(self.config.clientSecret);
     spotifyApi.setRedirectURI(self.config.redirectUri);
@@ -208,7 +202,6 @@ instance.prototype.updateConfig = function(config) {
         spotifyApi.setRefreshToken(self.config.refreshToken);
     }
 
-    console.log(self.config.deviceId);
 	self.actions();
 }
 
@@ -234,7 +227,7 @@ instance.prototype.init = function() {
             spotifyApi.setAccessToken(data.body['access_token']);
         },
         function(err) {
-            console.log('Could not refresh access token', err);
+            self.warn('Could not refresh access token', err);
         }
     );
 
@@ -376,7 +369,7 @@ instance.prototype.action = function(action) {
     }
 
     if(action.action == 'volumeUp' || action.action == 'volumeDown'){
-        ChangeVolume(action);
+        ChangeVolume(action,self.config.deviceId);
     }
 
     if(action.action == 'skip'){
@@ -388,19 +381,16 @@ instance.prototype.action = function(action) {
     }
     
     if(action.action == 'activeDeviceToClip'){
-        console.log('running');
         spotifyApi.getMyDevices()
         .then(function(data) {
             let availableDevices = data.body.devices;
-            console.log(availableDevices);
             for(var i=0; i < availableDevices.length; i++){
-                console.log(availableDevices[i]);
                 if(availableDevices[i].is_active){
                     clipboardy.writeSync(availableDevices[i].id);
                 }
             }
         }, function(err) {
-            console.log('Something went wrong!', err);
+            self.warn('Something went wrong!', err);
         });
     }
 }   
