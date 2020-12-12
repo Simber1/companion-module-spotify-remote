@@ -9,8 +9,6 @@ var instance_skel = require('../../instance_skel');
 var SpotifyWebApi = require('spotify-web-api-node');
 const clipboardy  = require('clipboardy');
 
-var spotifyApi;
-
 const scopes = [
     'ugc-image-upload',
     'user-read-playback-state',
@@ -36,7 +34,7 @@ const scopes = [
 
 function instance(system, id, config) {
 	var self = this;
-
+    self.spotifyApi = null;
 	// super-constructor
 	instance_skel.apply(this, arguments);
 
@@ -45,12 +43,12 @@ function instance(system, id, config) {
 	return self;
 }
 
-function errorCheck(err){
+function errorCheck(err,self){
     //Error Code 401 represents out of date token
     if (err.statusCode == '401') {
-        spotifyApi.refreshAccessToken().then(
+        self.spotifyApi.refreshAccessToken().then(
             function(data) {
-              spotifyApi.setAccessToken(data.body['access_token']);
+              self.spotifyApi.setAccessToken(data.body['access_token']);
             },
             function(err) {
                 self.warn('Could not refresh access token', err);
@@ -62,61 +60,61 @@ function errorCheck(err){
     }
 }
 
-function ChangePlayState(action,device) {
-    spotifyApi.getMyCurrentPlaybackState()
+function ChangePlayState(action,device,self) {
+    self.spotifyApi.getMyCurrentPlaybackState()
     .then(function(data) {
     // Output items
         if (data.body && data.body.is_playing) {
             if (action.action == 'pause' || action.action == 'play/pause') {
-                spotifyApi.pause().then(
+                self.spotifyApi.pause().then(
                     function() {},
                     function(err) {self.warn('Something went wrong!', err);}
                 );
             }
         } else {
             if (action.action == 'play' || action.action == 'play/pause'){
-                spotifyApi.play({"device_id": device}).then(
+                self.spotifyApi.play({"device_id": device}).then(
                     function() {},
                     function(err) {self.warn('Something went wrong!', err);}
                 );
             }
         }
     }, function(err) {
-        if (errorCheck(err)) {
-            ChangePlayState(action);
+        if (errorCheck(err,self)) {
+            ChangePlayState(action,self);
         }
     });
 }
 
-function ChangeShuffleState(action) {
-    spotifyApi.getMyCurrentPlaybackState()
+function ChangeShuffleState(action,self) {
+    self.spotifyApi.getMyCurrentPlaybackState()
     .then(function(data) {
         if (data.body && data.body.shuffle_state) {
             if (action.action == 'shuffleOff' || action.action == 'shuffleToggle') {
-                spotifyApi.setShuffle(false)
+                self.spotifyApi.setShuffle(false)
                     .then(function() {},
-                    function(err) {errorCheck(err)});
+                    function(err) {errorCheck(err,self)});
             }
         }else{
             if (action.action == 'shuffleOn' || action.action == 'shuffleToggle') {
-                spotifyApi.setShuffle(true)
+                self.spotifyApi.setShuffle(true)
                 .then(function() {},
-                function(err) {errorCheck(err)});
+                function(err) {errorCheck(err,self)});
             }
         }
-    }, function(err) {
-        if (errorCheck(err)) {
-            ChangeShuffleState(action);
+    }, function(err,) {
+        if (errorCheck(err,self)) {
+            ChangeShuffleState(action,self);
         }
     });
 
 }
 
-function ChangeVolume(action,device) {
+function ChangeVolume(action,device,self) {
     var availableDevices;
     var currentVolume;
 
-    spotifyApi.getMyDevices()
+    self.spotifyApi.getMyDevices()
     .then(function(data) {
 
         availableDevices = data.body.devices;
@@ -140,34 +138,34 @@ function ChangeVolume(action,device) {
             }
         }
 
-        spotifyApi.setVolume(currentVolume,{"device_id": device})
+        self.spotifyApi.setVolume(currentVolume,{"device_id": device})
             .then(function () {},
             function(err) {
-                errorCheck(err)
+                errorCheck(err,self)
             });
         }, function(err) {
-            if (errorCheck(err)) {
-                ChangeVolume(action);
+            if (errorCheck(err,self)) {
+                ChangeVolume(action,self);
             }
         });
 }
 
-function SkipSong() {
-    spotifyApi.skipToNext()
+function SkipSong(self) {
+    self.spotifyApi.skipToNext()
     .then(function() {},
     function(err) {
-        if (errorCheck(err)) {
-            SkipSong();
+        if (errorCheck(err,self)) {
+            SkipSong(self);
         }
     });
 }
 
-function PreviousSong(){
-    spotifyApi.skipToPrevious()
+function PreviousSong(self){
+    self.spotifyApi.skipToPrevious()
     .then(function() {},
     function(err) {
-        if (errorCheck(err)) {
-            PreviousSong();
+        if (errorCheck(err,self)) {
+            PreviousSong(self);
         }
     });
 }
@@ -176,28 +174,28 @@ instance.prototype.updateConfig = function(config) {
 	var self = this;
 
     self.config = config;
-    spotifyApi.setClientId(self.config.clientId);
-    spotifyApi.setClientSecret(self.config.clientSecret);
-    spotifyApi.setRedirectURI(self.config.redirectUri);
+    self.spotifyApi.setClientId(self.config.clientId);
+    self.spotifyApi.setClientSecret(self.config.clientSecret);
+    self.spotifyApi.setRedirectURI(self.config.redirectUri);
     if (self.config.code&& !self.config.accessToken) {
-        spotifyApi.authorizationCodeGrant(self.config.code).then(
+        self.spotifyApi.authorizationCodeGrant(self.config.code).then(
             function(data) {
             let toClip = 'The access token is ' + data.body['access_token'] +"\n"+ 'The refresh token is ' + data.body['refresh_token'];
             clipboardy.writeSync(toClip);
 
             // Set the access token on the API object to use it in later calls
-            spotifyApi.setAccessToken(data.body['access_token']);
-            spotifyApi.setRefreshToken(data.body['refresh_token']);
+            self.self.spotifyApi.setAccessToken(data.body['access_token']);
+            self.spotifyApi.setRefreshToken(data.body['refresh_token']);
         }, function(err) {errorCheck(err)});
     }
     if (self.config.redirectUri && self.config.clientSecret && self.config.clientId && !self.config.accessToken && !self.config.code) {
-        clipboardy.writeSync(spotifyApi.createAuthorizeURL(scopes));
+        clipboardy.writeSync(self.spotifyApi.createAuthorizeURL(scopes));
     }
     if (self.config.accessToken) {
-        spotifyApi.setAccessToken(self.config.accessToken);
+        self.spotifyApi.setAccessToken(self.config.accessToken);
     }
     if (self.config.refreshToken) {
-        spotifyApi.setRefreshToken(self.config.refreshToken);
+        self.spotifyApi.setRefreshToken(self.config.refreshToken);
     }
 
 	self.actions();
@@ -205,30 +203,31 @@ instance.prototype.updateConfig = function(config) {
 
 instance.prototype.init = function() {
 	var self = this;
-
+    
     self.status(self.STATE_OK);
 
-    spotifyApi = new SpotifyWebApi();
+    let spotifyApi = new SpotifyWebApi();
+    self.spotifyApi = spotifyApi;
     if (self.config.clientId) {
-        spotifyApi.setClientId(self.config.clientId)
+        self.spotifyApi.setClientId(self.config.clientId)
     }
     if (self.config.clientSecret) {
-        spotifyApi.setClientSecret(self.config.clientSecret)
+        self.spotifyApi.setClientSecret(self.config.clientSecret)
     }
     if (self.config.redirectUri) {
-        spotifyApi.setRedirectURI(self.config.redirectUri)
+        self.spotifyApi.setRedirectURI(self.config.redirectUri)
     }
     if (self.config.accessToken) {
-        spotifyApi.setAccessToken(self.config.accessToken);
+        self.spotifyApi.setAccessToken(self.config.accessToken);
     }
     if (self.config.refreshToken) {
-        spotifyApi.setRefreshToken(self.config.refreshToken);
+        self.spotifyApi.setRefreshToken(self.config.refreshToken);
     }
 
-    spotifyApi.refreshAccessToken().then(
+    self.spotifyApi.refreshAccessToken().then(
         function(data) {
             // Save the access token so that it's used in future calls
-            spotifyApi.setAccessToken(data.body['access_token']);
+            self.spotifyApi.setAccessToken(data.body['access_token']);
         },
         function(err) {
             self.warn('Could not refresh access token', err);
@@ -362,27 +361,27 @@ instance.prototype.action = function(action) {
     var self = this;
 
     if (action.action == "play/pause" || action.action == 'play' || action.action == 'pause') {
-        ChangePlayState(action,self.config.deviceId);
+        ChangePlayState(action,self.config.deviceId,self);
     }
 
     if (action.action == 'shuffleToggle' || action.action=='shuffleOn' || action.action=='shuffleOff') {
-        ChangeShuffleState(action);
+        ChangeShuffleState(action,self);
     }
 
     if (action.action == 'volumeUp' || action.action == 'volumeDown') {
-        ChangeVolume(action,self.config.deviceId);
+        ChangeVolume(action,self.config.deviceId,self);
     }
 
     if (action.action == 'skip') {
-        SkipSong();
+        SkipSong(self);
     }
 
     if (action.action == 'previous') {
-        PreviousSong();
+        PreviousSong(self);
     }
 
     if (action.action == 'activeDeviceToClip') {
-        spotifyApi.getMyDevices()
+        self.spotifyApi.getMyDevices()
         .then(function(data) {
             let availableDevices = data.body.devices;
             for (var i=0; i < availableDevices.length; i++) {
