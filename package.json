@@ -6,6 +6,16 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
-  "license": "ISC"
+  "author": "Peter Stather",
+  "license": "ISC",
+  "keywords": [
+    "Spotify"
+  ],
+  "manufacturer": "Spotify",
+  "product": "Spotify Web API and Controller",
+  "shortname": "Spotify",
+  "dependencies": {
+    "clipboardy": "^2.3.0",
+    "spotify-web-api-node": "^5.0.0"
+  }
 }
