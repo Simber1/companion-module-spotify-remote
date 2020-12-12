@@ -7,14 +7,9 @@
 
 var instance_skel = require('../../instance_skel');
 var SpotifyWebApi = require('spotify-web-api-node');
-const clipboardy = require('clipboardy');
+const clipboardy  = require('clipboardy');
 
 var spotifyApi;
-var volumeUpAmount;
-var volumeDownAmount;
-var erorr401;
-
-
 
 const scopes = [
     'ugc-image-upload',
@@ -46,24 +41,23 @@ function instance(system, id, config) {
 	instance_skel.apply(this, arguments);
 
     self.actions(); // export actions
-    
+
 	return self;
 }
 
 function errorCheck(err){
     //Error Code 401 represents out of date token
-    if(err.statusCode == '401'){
+    if (err.statusCode == '401') {
         spotifyApi.refreshAccessToken().then(
             function(data) {
               spotifyApi.setAccessToken(data.body['access_token']);
-              erorr401 = true;
             },
             function(err) {
                 self.warn('Could not refresh access token', err);
             }
         );
-    } 
-    else{
+    }
+    else {
         self.warn('Something went wrong with an API Call: '+ err);
     }
 }
@@ -73,52 +67,52 @@ function ChangePlayState(action,device) {
     .then(function(data) {
     // Output items
         if (data.body && data.body.is_playing) {
-            if(action.action == 'pause' || action.action == 'play/pause'){
+            if (action.action == 'pause' || action.action == 'play/pause') {
                 spotifyApi.pause().then(
-                    function() {}, 
+                    function() {},
                     function(err) {self.warn('Something went wrong!', err);}
                 );
             }
         } else {
-            if(action.action == 'play' || action.action == 'play/pause'){
+            if (action.action == 'play' || action.action == 'play/pause'){
                 spotifyApi.play({"device_id": device}).then(
-                    function() {}, 
+                    function() {},
                     function(err) {self.warn('Something went wrong!', err);}
                 );
             }
         }
     }, function(err) {
-        if(errorCheck(err)){
+        if (errorCheck(err)) {
             ChangePlayState(action);
         }
     });
 }
 
-function ChangeShuffleState(action){
+function ChangeShuffleState(action) {
     spotifyApi.getMyCurrentPlaybackState()
     .then(function(data) {
         if (data.body && data.body.shuffle_state) {
-            if(action.action == 'shuffleOff' || action.action == 'shuffleToggle'){
+            if (action.action == 'shuffleOff' || action.action == 'shuffleToggle') {
                 spotifyApi.setShuffle(false)
-                    .then(function() {}, 
+                    .then(function() {},
                     function(err) {errorCheck(err)});
             }
         }else{
-            if(action.action == 'shuffleOn' || action.action == 'shuffleToggle'){
+            if (action.action == 'shuffleOn' || action.action == 'shuffleToggle') {
                 spotifyApi.setShuffle(true)
-                .then(function() {}, 
+                .then(function() {},
                 function(err) {errorCheck(err)});
             }
         }
     }, function(err) {
-        if(errorCheck(err)){
+        if (errorCheck(err)) {
             ChangeShuffleState(action);
         }
     });
 
 }
 
-function ChangeVolume(action,device){
+function ChangeVolume(action,device) {
     var availableDevices;
     var currentVolume;
 
@@ -127,38 +121,42 @@ function ChangeVolume(action,device){
 
         availableDevices = data.body.devices;
 
-        for(i=0; i <availableDevices.length; i++){
-            if(availableDevices[i].id == device){
+        for (i=0; i <availableDevices.length; i++) {
+            if (availableDevices[i].id == device) {
                 currentVolume = availableDevices[i].volume_percent;
             }
         }
 
-        if(action.action == 'volumeUp')
-        {
+        if (action.action == 'volumeUp') {
             currentVolume = currentVolume - -action.options.volumeUpAmount; //double negitive because JS things
-            if(currentVolume > 100){ currentVolume = 100; }
+            if (currentVolume > 100) {
+                currentVolume = 100;
+            }
         }
-        else
-        {
+        else {
             currentVolume = currentVolume - action.options.volumeDownAmount;
-            if(currentVolume < 0){ currentVolume = 0; }
+            if (currentVolume < 0) {
+                currentVolume = 0;
+            }
         }
 
         spotifyApi.setVolume(currentVolume,{"device_id": device})
-            .then(function () {}, 
-            function(err) {errorCheck(err)});
+            .then(function () {},
+            function(err) {
+                errorCheck(err)
+            });
         }, function(err) {
-            if(errorCheck(err)){
+            if (errorCheck(err)) {
                 ChangeVolume(action);
             }
         });
 }
 
-function SkipSong(){
+function SkipSong() {
     spotifyApi.skipToNext()
-    .then(function() {}, 
+    .then(function() {},
     function(err) {
-        if(errorCheck(err)){
+        if (errorCheck(err)) {
             SkipSong();
         }
     });
@@ -166,9 +164,9 @@ function SkipSong(){
 
 function PreviousSong(){
     spotifyApi.skipToPrevious()
-    .then(function() {}, 
+    .then(function() {},
     function(err) {
-        if(errorCheck(err)){
+        if (errorCheck(err)) {
             PreviousSong();
         }
     });
@@ -181,24 +179,24 @@ instance.prototype.updateConfig = function(config) {
     spotifyApi.setClientId(self.config.clientId);
     spotifyApi.setClientSecret(self.config.clientSecret);
     spotifyApi.setRedirectURI(self.config.redirectUri);
-    if(self.config.code&& !self.config.accessToken){
+    if (self.config.code&& !self.config.accessToken) {
         spotifyApi.authorizationCodeGrant(self.config.code).then(
             function(data) {
             let toClip = 'The access token is ' + data.body['access_token'] +"\n"+ 'The refresh token is ' + data.body['refresh_token'];
             clipboardy.writeSync(toClip);
-        
+
             // Set the access token on the API object to use it in later calls
             spotifyApi.setAccessToken(data.body['access_token']);
             spotifyApi.setRefreshToken(data.body['refresh_token']);
         }, function(err) {errorCheck(err)});
     }
-    if(self.config.redirectUri && self.config.clientSecret && self.config.clientId && !self.config.accessToken && !self.config.code){
+    if (self.config.redirectUri && self.config.clientSecret && self.config.clientId && !self.config.accessToken && !self.config.code) {
         clipboardy.writeSync(spotifyApi.createAuthorizeURL(scopes));
     }
-    if(self.config.accessToken){
+    if (self.config.accessToken) {
         spotifyApi.setAccessToken(self.config.accessToken);
     }
-    if(self.config.refreshToken){
+    if (self.config.refreshToken) {
         spotifyApi.setRefreshToken(self.config.refreshToken);
     }
 
@@ -209,15 +207,21 @@ instance.prototype.init = function() {
 	var self = this;
 
     self.status(self.STATE_OK);
-    
+
     spotifyApi = new SpotifyWebApi();
-    if(self.config.clientId){ spotifyApi.setClientId(self.config.clientId)}
-    if(self.config.clientSecret){ spotifyApi.setClientSecret(self.config.clientSecret)}
-    if(self.config.redirectUri){ spotifyApi.setRedirectURI(self.config.redirectUri)}
-    if(self.config.accessToken){
+    if (self.config.clientId) {
+        spotifyApi.setClientId(self.config.clientId)
+    }
+    if (self.config.clientSecret) {
+        spotifyApi.setClientSecret(self.config.clientSecret)
+    }
+    if (self.config.redirectUri) {
+        spotifyApi.setRedirectURI(self.config.redirectUri)
+    }
+    if (self.config.accessToken) {
         spotifyApi.setAccessToken(self.config.accessToken);
     }
-    if(self.config.refreshToken){
+    if (self.config.refreshToken) {
         spotifyApi.setRefreshToken(self.config.refreshToken);
     }
 
@@ -357,32 +361,32 @@ instance.prototype.actions = function(system) {
 instance.prototype.action = function(action) {
     var self = this;
 
-    if(action.action == "play/pause" || action.action == 'play' || action.action == 'pause'){
+    if (action.action == "play/pause" || action.action == 'play' || action.action == 'pause') {
         ChangePlayState(action,self.config.deviceId);
     }
 
-    if(action.action == 'shuffleToggle' || action.action=='shuffleOn' || action.action=='shuffleOff'){
+    if (action.action == 'shuffleToggle' || action.action=='shuffleOn' || action.action=='shuffleOff') {
         ChangeShuffleState(action);
     }
 
-    if(action.action == 'volumeUp' || action.action == 'volumeDown'){
+    if (action.action == 'volumeUp' || action.action == 'volumeDown') {
         ChangeVolume(action,self.config.deviceId);
     }
 
-    if(action.action == 'skip'){
+    if (action.action == 'skip') {
         SkipSong();
     }
 
-    if(action.action == 'previous'){
+    if (action.action == 'previous') {
         PreviousSong();
     }
-    
-    if(action.action == 'activeDeviceToClip'){
+
+    if (action.action == 'activeDeviceToClip') {
         spotifyApi.getMyDevices()
         .then(function(data) {
             let availableDevices = data.body.devices;
-            for(var i=0; i < availableDevices.length; i++){
-                if(availableDevices[i].is_active){
+            for (var i=0; i < availableDevices.length; i++) {
+                if (availableDevices[i].is_active) {
                     clipboardy.writeSync(availableDevices[i].id);
                 }
             }
@@ -390,6 +394,6 @@ instance.prototype.action = function(action) {
             self.warn('Something went wrong!', err);
         });
     }
-}   
+}
 instance_skel.extendedBy(instance);
 exports = module.exports = instance;
