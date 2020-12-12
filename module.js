@@ -3,6 +3,7 @@
 // Varibles: Current Volume, Current song, Song progress, Current album art as a var(?), Current Play Status, Current Device Name
 // Fix no active device
 // Auto Refresh key; Kinda done, only works on actions
+// Instance Feedback for current playback state, shuffle/repeat on or off
 
 
 var instance_skel = require('../../instance_skel');
@@ -134,10 +135,12 @@ function ChangeVolume(action){
         if(action.action == 'volumeUp')
         {
             currentVolume = currentVolume - -action.options.volumeUpAmount; //double negitive because JS things
+            if(currentVolume > 100){ currentVolume = 100; }
         }
         else
         {
             currentVolume = currentVolume - action.options.volumeDownAmount;
+            if(currentVolume < 0){ currentVolume = 0; }
         }
 
         spotifyApi.setVolume(currentVolume)
@@ -283,13 +286,7 @@ instance.prototype.config_fields = function () {
 			id: 'accessToken',
 			width: 12,
 			label: 'accessToken',
-        },
-        {
-			type: 'textinput',
-			id: 'refreshToken',
-			width: 12,
-			label: 'refreshToken',
-		},
+        }
 	]
 }
 
