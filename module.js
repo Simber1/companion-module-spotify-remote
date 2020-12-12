@@ -1,7 +1,7 @@
 //TODO:
 // Clean up code, volume function, shuffle function, play function all in a different file. Startup and config function for setting all of the wrapper vars too
 // Varibles: Current Volume, Current song, Song progress, Current album art as a var(?), Current Play Status, Current Device Name
-// Auto Refresh key; Kinda done, requires 2 presses sometimes
+// Auto Refresh key; Done, seems to be working.
 // Instance Feedback for current playback state, shuffle/repeat on or off
 
 
