@@ -74,14 +74,14 @@ function ChangePlayState(action) {
         if (data.body && data.body.is_playing) {
             if(action.action == 'pause' || action.action == 'play/pause'){
                 spotifyApi.pause().then(
-                    function() {console.log('Playback paused');}, 
+                    function() {}, 
                     function(err) {console.log('Something went wrong!', err);}
                 );
             }
         } else {
             if(action.action == 'play' || action.action == 'play/pause'){
                 spotifyApi.play().then(
-                    function() {console.log('Playback played');}, 
+                    function() {}, 
                     function(err) {console.log('Something went wrong!', err);}
                 );
             }
@@ -98,16 +98,14 @@ function ChangeShuffleState(action){
         if (data.body && data.body.shuffle_state) {
             if(action.action == 'shuffleOff' || action.action == 'shuffleToggle'){
                 spotifyApi.setShuffle(false)
-                    .then(function() {
-                        console.log('Shuffle is off.');
-                    }, function(err) {errorCheck(err)});
+                    .then(function() {}, 
+                    function(err) {errorCheck(err)});
             }
         }else{
             if(action.action == 'shuffleOn' || action.action == 'shuffleToggle'){
                 spotifyApi.setShuffle(true)
-                .then(function() {
-                    console.log('Shuffle is on.');
-                }, function(err) {errorCheck(err)});
+                .then(function() {}, 
+                function(err) {errorCheck(err)});
             }
         }
     }, function(err) {
@@ -144,7 +142,8 @@ function ChangeVolume(action){
         }
 
         spotifyApi.setVolume(currentVolume)
-            .then(function () {}, function(err) {errorCheck(err)});
+            .then(function () {}, 
+            function(err) {errorCheck(err)});
         }, function(err) {
             errorCheck(err);
             ChangeVolume(action);
@@ -153,8 +152,8 @@ function ChangeVolume(action){
 
 function SkipSong(){
     spotifyApi.skipToNext()
-    .then(function() {
-    }, function(err) {
+    .then(function() {}, 
+    function(err) {
         errorCheck(err);
         SkipSong();
     });
@@ -162,8 +161,8 @@ function SkipSong(){
 
 function PreviousSong(){
     spotifyApi.skipToPrevious()
-    .then(function() {
-    }, function(err) {
+    .then(function() {}, 
+    function(err) {
         errorCheck(err);
         PreviousSong();
     });
@@ -211,11 +210,7 @@ instance.prototype.init = function() {
     if(self.config.clientId){ spotifyApi.setClientId(self.config.clientId)}
     if(self.config.clientSecret){ spotifyApi.setClientSecret(self.config.clientSecret)}
     if(self.config.redirectUri){ spotifyApi.setRedirectURI(self.config.redirectUri)}
-    if(!self.config.code){
-        console.log(spotifyApi.createAuthorizeURL(scopes));
-    }
     if(self.config.accessToken){
-        console.log(self.config.accessToken);
         spotifyApi.setAccessToken(self.config.accessToken);
     }
     if(self.config.refreshToken){
@@ -224,13 +219,11 @@ instance.prototype.init = function() {
 
     spotifyApi.refreshAccessToken().then(
         function(data) {
-          console.log('The access token has been refreshed!');
-      
-          // Save the access token so that it's used in future calls
-          spotifyApi.setAccessToken(data.body['access_token']);
+            // Save the access token so that it's used in future calls
+            spotifyApi.setAccessToken(data.body['access_token']);
         },
         function(err) {
-          console.log('Could not refresh access token', err);
+            console.log('Could not refresh access token', err);
         }
     );
 
@@ -240,13 +233,10 @@ instance.prototype.init = function() {
 
 instance.prototype.destroy = function() {
     var self = this;
-    if (spotifyApi !== undefined) {
-		spotifyApi.destroy();
-	}
-	debug("destroy");
+    debug("destroy");
+    //TODO
 }
 
-// Return config fields for web config
 instance.prototype.config_fields = function () {
     var self = this;
 	return [
@@ -359,7 +349,6 @@ instance.prototype.action = function(action) {
         ChangeShuffleState(action);
     }
 
-    //TODO: Move most of the code in here to it's own function
     if(action.action == 'volumeUp' || action.action == 'volumeDown'){
         ChangeVolume(action);
     }
@@ -370,16 +359,6 @@ instance.prototype.action = function(action) {
 
     if(action.action == 'previous'){
         PreviousSong();
-    }
-    //TODO: Remove this
-    if(action.action == 'refresh'){
-        spotifyApi.refreshAccessToken().then(
-            function(data) {
-              console.log('The access token has been refreshed!');
-          
-              // Save the access token so that it's used in future calls
-              spotifyApi.setAccessToken(data.body['access_token']);
-        }, function(err) {errorCheck(err)});
     }
 }   
 instance_skel.extendedBy(instance);
