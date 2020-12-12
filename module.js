@@ -13,6 +13,7 @@ const clipboardy = require('clipboardy');
 var spotifyApi;
 var volumeUpAmount;
 var volumeDownAmount;
+var erorr401;
 
 
 
@@ -46,7 +47,7 @@ function instance(system, id, config) {
 	instance_skel.apply(this, arguments);
 
     self.actions(); // export actions
-
+    
 	return self;
 }
 
@@ -56,18 +57,23 @@ function errorCheck(err){
         spotifyApi.refreshAccessToken().then(
             function(data) {
               spotifyApi.setAccessToken(data.body['access_token']);
+              erorr401 = true;
             },
             function(err) {
               console.log('Could not refresh access token', err);
             }
         );
-    } else{
+    } 
+    else{
         console.log('Something went wrong with an API Call: '+ err);
     }
+    if(err.statusCode == '404'){
+    }
+
 
 }
 
-function ChangePlayState(action) {
+function ChangePlayState(action,device) {
     spotifyApi.getMyCurrentPlaybackState()
     .then(function(data) {
     // Output items
@@ -80,15 +86,16 @@ function ChangePlayState(action) {
             }
         } else {
             if(action.action == 'play' || action.action == 'play/pause'){
-                spotifyApi.play().then(
+                spotifyApi.play({"device_id": device}).then(
                     function() {}, 
                     function(err) {console.log('Something went wrong!', err);}
                 );
             }
         }
     }, function(err) {
-        errorCheck(err);
-        ChangePlayState(action);
+        if(errorCheck(err)){
+            ChangePlayState(action);
+        }
     });
 }
 
@@ -109,8 +116,9 @@ function ChangeShuffleState(action){
             }
         }
     }, function(err) {
-        errorCheck(err);
-        ChangeShuffleState(action);
+        if(errorCheck(err)){
+            ChangeShuffleState(action);
+        }
     });
 
 }
@@ -145,8 +153,9 @@ function ChangeVolume(action){
             .then(function () {}, 
             function(err) {errorCheck(err)});
         }, function(err) {
-            errorCheck(err);
-            ChangeVolume(action);
+            if(errorCheck(err)){
+                ChangeVolume(action);
+            }
         });
 }
 
@@ -154,8 +163,9 @@ function SkipSong(){
     spotifyApi.skipToNext()
     .then(function() {}, 
     function(err) {
-        errorCheck(err);
-        SkipSong();
+        if(errorCheck(err)){
+            SkipSong();
+        }
     });
 }
 
@@ -163,8 +173,9 @@ function PreviousSong(){
     spotifyApi.skipToPrevious()
     .then(function() {}, 
     function(err) {
-        errorCheck(err);
-        PreviousSong();
+        if(errorCheck(err)){
+            PreviousSong();
+        }
     });
 }
 
@@ -172,7 +183,7 @@ instance.prototype.updateConfig = function(config) {
 	var self = this;
 
     self.config = config;
-
+    console.log(self.config);
     spotifyApi.setClientId(self.config.clientId);
     spotifyApi.setClientSecret(self.config.clientSecret);
     spotifyApi.setRedirectURI(self.config.redirectUri);
@@ -197,7 +208,7 @@ instance.prototype.updateConfig = function(config) {
         spotifyApi.setRefreshToken(self.config.refreshToken);
     }
 
-
+    console.log(self.config.deviceId);
 	self.actions();
 }
 
@@ -269,13 +280,25 @@ instance.prototype.config_fields = function () {
 			type: 'textinput',
 			id: 'code',
 			width: 12,
-			label: 'Code',
+			label: 'Approval Code',
         },
         {
 			type: 'textinput',
 			id: 'accessToken',
 			width: 12,
-			label: 'accessToken',
+			label: 'Access Token',
+        },
+        {
+            type: 'textinput',
+            id: 'refreshToken',
+            width: 12,
+            label: 'Refresh Token'
+        },
+        {
+            type: 'textinput',
+            id: 'deviceId',
+            width: 12,
+            label: 'Device ID'
         }
 	]
 }
@@ -334,6 +357,9 @@ instance.prototype.actions = function(system) {
         },
         'shuffleOff': {
             label: "Turn Shuffle Off"
+        },
+        'activeDeviceToClip': {
+            label: "Copy the ID of the current Active Device"
         }
 	});
 }
@@ -342,7 +368,7 @@ instance.prototype.action = function(action) {
     var self = this;
 
     if(action.action == "play/pause" || action.action == 'play' || action.action == 'pause'){
-        ChangePlayState(action);
+        ChangePlayState(action,self.config.deviceId);
     }
 
     if(action.action == 'shuffleToggle' || action.action=='shuffleOn' || action.action=='shuffleOff'){
@@ -359,6 +385,23 @@ instance.prototype.action = function(action) {
 
     if(action.action == 'previous'){
         PreviousSong();
+    }
+    
+    if(action.action == 'activeDeviceToClip'){
+        console.log('running');
+        spotifyApi.getMyDevices()
+        .then(function(data) {
+            let availableDevices = data.body.devices;
+            console.log(availableDevices);
+            for(var i=0; i < availableDevices.length; i++){
+                console.log(availableDevices[i]);
+                if(availableDevices[i].is_active){
+                    clipboardy.writeSync(availableDevices[i].id);
+                }
+            }
+        }, function(err) {
+            console.log('Something went wrong!', err);
+        });
     }
 }   
 instance_skel.extendedBy(instance);
