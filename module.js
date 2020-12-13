@@ -208,7 +208,6 @@ instance.prototype.GetPlaybackState = function GetPlaybackState(){
 
         songDuration = songDuration/1000;
         songDuration = songDuration.toFixed(0);
-        console.log(songPercentage);
 
         self.setVariable('songName',            data.body.item.name);
         self.setVariable('albumName',           data.body.item.album.name)
