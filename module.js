@@ -64,7 +64,7 @@ function ChangePlayState(action,device,self) {
             if (action.action == 'pause' || action.action == 'play/pause') {
                 self.spotifyApi.pause().then(
                     function() {
-                        instance.prototype.GetPlaybackState();
+                        self.GetPlaybackState();
                     },
                     function(err) {self.warn('Something went wrong!', err);}
                 );
@@ -73,7 +73,7 @@ function ChangePlayState(action,device,self) {
             if (action.action == 'play' || action.action == 'play/pause'){
                 self.spotifyApi.play({"device_id": device}).then(
                     function() {
-                        instance.prototype.GetPlaybackState();
+                        self.GetPlaybackState();
                     },
                     function(err) {self.warn('Something went wrong!', err);}
                 );
@@ -93,7 +93,7 @@ function ChangeShuffleState(action,self) {
             if (action.action == 'shuffleOff' || action.action == 'shuffleToggle') {
                 self.spotifyApi.setShuffle(false)
                     .then(function() {
-                        instance.prototype.GetPlaybackState();
+                        self.GetPlaybackState();
                     },
                     function(err) {errorCheck(err,self)});
             }
@@ -101,7 +101,7 @@ function ChangeShuffleState(action,self) {
             if (action.action == 'shuffleOn' || action.action == 'shuffleToggle') {
                 self.spotifyApi.setShuffle(true)
                 .then(function() {
-                    instance.prototype.GetPlaybackState();
+                    self.GetPlaybackState();
                 },
                 function(err) {errorCheck(err,self)});
             }
@@ -220,6 +220,11 @@ instance.prototype.GetPlaybackState = function GetPlaybackState(){
         self.setVariable('songDurationSeconds', songDuration); 
         self.setVariable('volume',              data.body.device.volume_percent);
         self.setVariable('currentAlbumArt',     data.body.item.album.images[0].url);
+    },
+    function(err) {
+        if (errorCheck(err,self)) {
+            self.GetPlaybackState();
+        }
     });
     
 }
