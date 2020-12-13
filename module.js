@@ -322,7 +322,7 @@ instance.prototype.config_fields = function () {
 			id: 'info',
 			width: 12,
 			label: 'Setup Information',
-			value: '<strong>PLEASE READ THIS!</strong> How to setup goes in here'
+			value: '<strong>PLEASE READ THE HELP FILE.</strong> (Question mark in the top right)'
 		},
 		{
 			type: 'textinput',
