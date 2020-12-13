@@ -1,9 +1,5 @@
 //TODO:
 // Clean up code, volume function, shuffle function, play function all in a different file. Startup and config function for setting all of the wrapper vars too
-// Varibles: Current Volume, Current song, Song progress, Current album art as a var(?), Current Play Status, Current Device Name
-// Auto Refresh key; Done, seems to be working.
-// Instance Feedback for current playback state, shuffle/repeat on or off
-
 
 var instance_skel = require('../../instance_skel');
 var SpotifyWebApi = require('spotify-web-api-node');
@@ -67,14 +63,18 @@ function ChangePlayState(action,device,self) {
         if (data.body && data.body.is_playing) {
             if (action.action == 'pause' || action.action == 'play/pause') {
                 self.spotifyApi.pause().then(
-                    function() {},
+                    function() {
+                        instance.prototype.GetPlaybackState();
+                    },
                     function(err) {self.warn('Something went wrong!', err);}
                 );
             }
         } else {
             if (action.action == 'play' || action.action == 'play/pause'){
                 self.spotifyApi.play({"device_id": device}).then(
-                    function() {},
+                    function() {
+                        instance.prototype.GetPlaybackState();
+                    },
                     function(err) {self.warn('Something went wrong!', err);}
                 );
             }
@@ -92,13 +92,17 @@ function ChangeShuffleState(action,self) {
         if (data.body && data.body.shuffle_state) {
             if (action.action == 'shuffleOff' || action.action == 'shuffleToggle') {
                 self.spotifyApi.setShuffle(false)
-                    .then(function() {},
+                    .then(function() {
+                        instance.prototype.GetPlaybackState();
+                    },
                     function(err) {errorCheck(err,self)});
             }
         }else{
             if (action.action == 'shuffleOn' || action.action == 'shuffleToggle') {
                 self.spotifyApi.setShuffle(true)
-                .then(function() {},
+                .then(function() {
+                    instance.prototype.GetPlaybackState();
+                },
                 function(err) {errorCheck(err,self)});
             }
         }
@@ -170,6 +174,57 @@ function PreviousSong(self){
     });
 }
 
+instance.prototype.GetPlaybackState = function GetPlaybackState(){
+    self = this;
+    self.spotifyApi.getMyCurrentPlaybackState()
+    .then(function(data) {
+        if (data.body && data.body.is_playing) {
+            self.MusicPlaying = true;
+            self.checkFeedbacks('is-playing');
+        } 
+        if (data.body && !data.body.is_playing) {
+            self.MusicPlaying = false;
+            self.checkFeedbacks('is-playing');
+        }
+
+        if(data.body && data.body.shuffle_state){
+            self.ShuffleOn = true;
+            self.checkFeedbacks('is-shuffle');
+        }
+        if(data.body && !data.body.shuffle_state){
+            self.ShuffleOn = false;
+            self.checkFeedbacks('is-shuffle');
+        }
+
+        let songProgress = data.body.progress_ms;
+        let songDuration = data.body.item.duration_ms
+        let songPercentage = songProgress/songDuration;
+        
+        songPercentage = songPercentage*100;
+        songPercentage = songPercentage.toFixed(0);
+
+        songProgress = songProgress/1000;
+        songProgress = songProgress.toFixed(0);
+
+        songDuration = songDuration/1000;
+        songDuration = songDuration.toFixed(0);
+        console.log(songPercentage);
+
+        self.setVariable('songName',            data.body.item.name);
+        self.setVariable('albumName',           data.body.item.album.name)
+        self.setVariable('artistName',          data.body.item.artists[0].name)
+        self.setVariable('isPlaying',           self.MusicPlaying);
+        self.setVariable('isShuffle',           self.ShuffleOn);
+        self.setVariable('repeat',              data.body.repeat_state);
+        self.setVariable('songPercentage',      songPercentage); 
+        self.setVariable('songProgressSeconds', songProgress); 
+        self.setVariable('songDurationSeconds', songDuration); 
+        self.setVariable('volume',              data.body.device.volume_percent);
+        self.setVariable('currentAlbumArt',     data.body.item.album.images[0].url);
+    });
+    
+}
+
 instance.prototype.updateConfig = function(config) {
 	var self = this;
 
@@ -234,12 +289,28 @@ instance.prototype.init = function() {
         }
     );
 
+    if (self.Timer === undefined) {
+        self.Timer = setInterval(self.GetPlaybackState.bind(self), 250); //Check every 0.25 seconds	
+    }
+
+    self.initFeedbacks();
+    self.initVariables();
 	debug = self.debug;
 	log = self.log;
 }
 
+instance.prototype.StopTimer = function () {
+	var self = this;
+	
+	if (self.Timer) {
+		clearInterval(self.Timer);
+		delete self.Timer;
+	}
+}
+
 instance.prototype.destroy = function() {
     var self = this;
+    self.StopTimer();
     debug("destroy");
     //TODO
 }
@@ -357,6 +428,78 @@ instance.prototype.actions = function(system) {
 	});
 }
 
+
+instance.prototype.Timer = undefined;
+
+// Set up Feedbacks
+instance.prototype.initFeedbacks = function () {
+	var self = this;
+
+	// feedbacks
+	var feedbacks = {};
+
+	feedbacks['is-playing'] = {
+		label: 'Change button colour if music is playing',
+		description: 'If there is active playback, set the button to this colour',
+		options: [
+			{
+				type: 'colorpicker',
+				label: 'Foreground color',
+				id: 'fg',
+				default: self.rgb(255,255,255)
+			},
+			{
+				type: 'colorpicker',
+				label: 'Background color',
+				id: 'bg',
+				default: self.rgb(0,255,0)
+			},
+		]
+	};
+	
+	feedbacks['is-shuffle'] = {
+		label: 'Change button colour if shuffle is turned on',
+		description: 'If shuffle is enabled, set the button to this colour',
+		options: [
+			{
+				type: 'colorpicker',
+				label: 'Foreground color',
+				id: 'fg',
+				default: self.rgb(255,255,255)
+			},
+			{
+				type: 'colorpicker',
+				label: 'Background color',
+				id: 'bg',
+				default: self.rgb(0,255,0)
+			},
+		]
+	};
+
+	self.setFeedbackDefinitions(feedbacks);
+}
+
+instance.prototype.initVariables = function() {
+	var self = this;
+
+	var variables = [];
+
+    variables.push({ name: 'songName',            label: 'Current Song Name' });
+    variables.push({ name: 'albumName',           label: 'Current Album Name' })
+    variables.push({ name: 'artistName',          label: 'Current Artist Name' })
+	variables.push({ name: 'isPlaying',           label: 'Is Playback Active' });
+	variables.push({ name: 'isShuffle',           label: 'Is Shuffle Enabled' });
+	variables.push({ name: 'repeat',              label: 'Is Repeat Enabled' }); // SOmething to do with repeating here
+    variables.push({ name: 'songPercentage',      label: 'Percentage of the current song completed' });
+    variables.push({ name: 'songProgressSeconds', label: 'Progress of the current song in seconds' });
+    variables.push({ name: 'songDurationSeconds', label: 'Duration of the current song in seconds' });
+    variables.push({ name: 'volume',              label: 'Current Volume' });
+    variables.push({ name:'currentAlbumArt',      label: 'Currently playing album artwork'});
+
+	self.setVariableDefinitions(variables);
+}
+
+
 instance.prototype.action = function(action) {
     var self = this;
 
@@ -394,5 +537,23 @@ instance.prototype.action = function(action) {
         });
     }
 }
+
+
+instance.prototype.feedback = function(feedback, bank) {
+	var self = this;
+	if (feedback.type === 'is-playing') {
+        if (self.MusicPlaying) {
+            return { color: feedback.options.fg, bgcolor: feedback.options.bg };
+        }
+    }
+    if (feedback.type === 'is-shuffle') {
+        if (self.ShuffleOn) {
+            return { color: feedback.options.fg, bgcolor: feedback.options.bg };
+        }
+    }
+}
+
+
+
 instance_skel.extendedBy(instance);
 exports = module.exports = instance;
