@@ -15,7 +15,6 @@
   "product": "Spotify Web API and Controller",
   "shortname": "Spotify",
   "dependencies": {
-    "clipboardy": "^2.3.0",
     "spotify-web-api-node": "^5.0.0"
   }
 }

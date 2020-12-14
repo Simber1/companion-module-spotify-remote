@@ -3,7 +3,6 @@
 
 var instance_skel = require('../../instance_skel');
 var SpotifyWebApi = require('spotify-web-api-node');
-const clipboardy  = require('clipboardy');
 
 const scopes = [
     'ugc-image-upload',
@@ -39,7 +38,8 @@ function instance(system, id, config) {
 	return self;
 }
 
-function errorCheck(err,self){
+instance.prototype.errorCheck = function(err){
+    var self = this; 
     //Error Code 401 represents out of date token
     if (err.statusCode == '401') {
         self.spotifyApi.refreshAccessToken().then(
@@ -56,7 +56,8 @@ function errorCheck(err,self){
     }
 }
 
-function ChangePlayState(action,device,self) {
+instance.prototype.ChangePlayState = function(action,device) {
+    var self = this;
     self.spotifyApi.getMyCurrentPlaybackState()
     .then(function(data) {
     // Output items
@@ -80,13 +81,14 @@ function ChangePlayState(action,device,self) {
             }
         }
     }, function(err) {
-        if (errorCheck(err,self)) {
-            ChangePlayState(action,self);
+        if (errorCheck(err)) {
+            self.ChangePlayState(action);
         }
     });
 }
 
-function ChangeShuffleState(action,self) {
+instance.prototype.ChangeShuffleState = function(action) {
+    var self = this;
     self.spotifyApi.getMyCurrentPlaybackState()
     .then(function(data) {
         if (data.body && data.body.shuffle_state) {
@@ -95,7 +97,7 @@ function ChangeShuffleState(action,self) {
                     .then(function() {
                         self.GetPlaybackState();
                     },
-                    function(err) {errorCheck(err,self)});
+                    function(err) {self.errorCheck(err)});
             }
         }else{
             if (action.action == 'shuffleOn' || action.action == 'shuffleToggle') {
@@ -103,18 +105,19 @@ function ChangeShuffleState(action,self) {
                 .then(function() {
                     self.GetPlaybackState();
                 },
-                function(err) {errorCheck(err,self)});
+                function(err) {self.errorCheck(err)});
             }
         }
     }, function(err,) {
-        if (errorCheck(err,self)) {
-            ChangeShuffleState(action,self);
+        if (self.errorCheck(err)) {
+            self.ChangeShuffleState(action);
         }
     });
 
 }
 
-function ChangeVolume(action,device,self) {
+instance.prototype.ChangeVolume = function(action,device) {
+    var self = this;
     var availableDevices;
     var currentVolume;
 
@@ -145,37 +148,39 @@ function ChangeVolume(action,device,self) {
         self.spotifyApi.setVolume(currentVolume,{"device_id": device})
             .then(function () {},
             function(err) {
-                errorCheck(err,self)
+                self.errorCheck(err)
             });
         }, function(err) {
-            if (errorCheck(err,self)) {
-                ChangeVolume(action,self);
+            if (self.errorCheck(err)) {
+                self.ChangeVolume(action);
             }
         });
 }
 
-function SkipSong(self) {
+instance.prototype.SkipSong = function() {
+    var self = this;
     self.spotifyApi.skipToNext()
     .then(function() {},
     function(err) {
-        if (errorCheck(err,self)) {
-            SkipSong(self);
+        if (self.errorCheck(err)) {
+            self.SkipSong();
         }
     });
 }
 
-function PreviousSong(self){
+instance.prototype.PreviousSong = function(){
+    var self = this;
     self.spotifyApi.skipToPrevious()
     .then(function() {},
     function(err) {
-        if (errorCheck(err,self)) {
-            PreviousSong(self);
+        if (self.errorCheck(err)) {
+            self.PreviousSong();
         }
     });
 }
 
-instance.prototype.GetPlaybackState = function GetPlaybackState(){
-    self = this;
+instance.prototype.GetPlaybackState = function(){
+    var self = this;
     self.spotifyApi.getMyCurrentPlaybackState()
     .then(function(data) {
         if (data.body && data.body.is_playing) {
@@ -222,7 +227,7 @@ instance.prototype.GetPlaybackState = function GetPlaybackState(){
         self.setVariable('currentAlbumArt',     data.body.item.album.images[0].url);
     },
     function(err) {
-        if (errorCheck(err,self)) {
+        if (self.errorCheck(err)) {
             self.GetPlaybackState();
         }
     });
@@ -239,16 +244,21 @@ instance.prototype.updateConfig = function(config) {
     if (self.config.code&& !self.config.accessToken) {
         self.spotifyApi.authorizationCodeGrant(self.config.code).then(
             function(data) {
-            let toClip = 'The access token is ' + data.body['access_token'] +"\n"+ 'The refresh token is ' + data.body['refresh_token'];
-            clipboardy.writeSync(toClip);
+                self.config.accessToken = data.body['access_token'];
+                self.config.refreshToken = data.body['refresh_token'];
+                self.saveConfig();
 
-            // Set the access token on the API object to use it in later calls
-            self.self.spotifyApi.setAccessToken(data.body['access_token']);
-            self.spotifyApi.setRefreshToken(data.body['refresh_token']);
-        }, function(err) {errorCheck(err)});
+                // Set the access token on the API object to use it in later calls
+                self.spotifyApi.setAccessToken(data.body['access_token']);
+                self.spotifyApi.setRefreshToken(data.body['refresh_token']);
+            }, 
+        function(err) {
+            errorCheck(err);
+        });
     }
     if (self.config.redirectUri && self.config.clientSecret && self.config.clientId && !self.config.accessToken && !self.config.code) {
-        clipboardy.writeSync(self.spotifyApi.createAuthorizeURL(scopes));
+        self.config.authURL = self.spotifyApi.createAuthorizeURL(scopes);
+        self.saveConfig();
     }
     if (self.config.accessToken) {
         self.spotifyApi.setAccessToken(self.config.accessToken);
@@ -370,6 +380,12 @@ instance.prototype.config_fields = function () {
             id: 'deviceId',
             width: 12,
             label: 'Device ID'
+        },
+        {
+            type: 'textinput',
+            id: 'authURL',
+            width: 12,
+            label: 'Auth URL'
         }
 	]
 }
@@ -427,7 +443,7 @@ instance.prototype.actions = function(system) {
             label: "Turn Shuffle Off"
         },
         'activeDeviceToClip': {
-            label: "Copy the ID of the current Active Device"
+            label: "Write the ID of the current Active Device to config"
         }
 	});
 }
@@ -508,23 +524,23 @@ instance.prototype.action = function(action) {
     var self = this;
 
     if (action.action == "play/pause" || action.action == 'play' || action.action == 'pause') {
-        ChangePlayState(action,self.config.deviceId,self);
+        self.ChangePlayState(action,self.config.deviceId);
     }
 
     if (action.action == 'shuffleToggle' || action.action=='shuffleOn' || action.action=='shuffleOff') {
-        ChangeShuffleState(action,self);
+        self.ChangeShuffleState(action);
     }
 
     if (action.action == 'volumeUp' || action.action == 'volumeDown') {
-        ChangeVolume(action,self.config.deviceId,self);
+        self.ChangeVolume(action,self.config.deviceId);
     }
 
     if (action.action == 'skip') {
-        SkipSong(self);
+        self.SkipSong();
     }
 
     if (action.action == 'previous') {
-        PreviousSong(self);
+        self.PreviousSong();
     }
 
     if (action.action == 'activeDeviceToClip') {
@@ -533,7 +549,8 @@ instance.prototype.action = function(action) {
             let availableDevices = data.body.devices;
             for (var i=0; i < availableDevices.length; i++) {
                 if (availableDevices[i].is_active) {
-                    clipboardy.writeSync(availableDevices[i].id);
+                    self.config.deviceId = availableDevices[i].id;
+                    self.saveConfig();
                 }
             }
         }, function(err) {
