@@ -1,5 +1,6 @@
 //TODO:
 // Clean up code, volume function, shuffle function, play function all in a different file. Startup and config function for setting all of the wrapper vars too
+// Seek on transfer to fix skipping due to spotifty api being bad.
 
 var instance_skel = require('../../instance_skel');
 var SpotifyWebApi = require('spotify-web-api-node');
@@ -177,6 +178,21 @@ instance.prototype.PreviousSong = function(){
             self.PreviousSong();
         }
     });
+}
+
+instance.prototype.TransferPlayback = function(id) {
+    var self = this;
+    id = [id];
+    self.spotifyApi.transferMyPlayback(id,{play: true})
+    .then(
+        function() {
+            self.GetPlaybackState();
+        },
+        function(err) {
+            self.errorCheck(err);
+            self.TransferPlayback(id);
+        }
+    );
 }
 
 instance.prototype.GetPlaybackState = function(){
@@ -442,8 +458,19 @@ instance.prototype.actions = function(system) {
         'shuffleOff': {
             label: "Turn Shuffle Off"
         },
-        'activeDeviceToClip': {
+        'activeDeviceToConfig': {
             label: "Write the ID of the current Active Device to config"
+        },        
+        'switchActiveDevice': {
+            label: 'Change Active Device',
+			options: [
+				{
+					type: 'textinput',
+					label: "Device ID",
+					id: 'deviceId',
+					default: ''
+				}
+			]
         }
 	});
 }
@@ -543,7 +570,7 @@ instance.prototype.action = function(action) {
         self.PreviousSong();
     }
 
-    if (action.action == 'activeDeviceToClip') {
+    if (action.action == 'activeDeviceToConfig') {
         self.spotifyApi.getMyDevices()
         .then(function(data) {
             let availableDevices = data.body.devices;
@@ -556,6 +583,13 @@ instance.prototype.action = function(action) {
         }, function(err) {
             self.warn('Something went wrong!', err);
         });
+    }
+
+    if (action.action == 'switchActiveDevice') {
+        var Id = action.options.deviceId;
+        self.config.deviceId = Id;
+        self.saveConfig();
+        self.TransferPlayback(self.config.deviceId);
     }
 }
 
